@@ -33,6 +33,10 @@ MANIFEST
 *.manifest
 *.spec
 
+*.sw[a-z]
+*.py[cox]
+*.sqlite
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -127,3 +131,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+files/
