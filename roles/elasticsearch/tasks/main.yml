@@ -1,0 +1,59 @@
+# Create Service linked IAM Role
+# ----------------------------------------------------
+- name: list existing IAM roles
+  shell: aws iam list-roles --no-paginate
+  register: list_iam_roles
+
+- set_fact:
+    iam_role_name: AWSServiceRoleForAmazonElasticsearchService
+
+- name: find service-linked IAM role for Elasticsearch
+  set_fact:
+    iam_role: "{{ list_iam_roles['stdout'] | from_json | json_query(query) }}"
+  vars:
+    query: "Roles[?RoleName=='{{ iam_role_name }}'] | [0]"
+
+- name: create service-linked IAM role for Elasticsearch
+  shell: aws iam create-service-linked-role --region {{ aws_region }} --aws-service-name es.amazonaws.com --description ElasticSearch
+  when: iam_role == ''
+
+# Creates Security Group for Elastic Search
+# ----------------------------------------------------
+- name: creates VPC security groups
+  ec2_group:
+    name: "{{ platform_name }}-elasticsearch"
+    description: Security group for elasticsearch
+    vpc_id: "{{ vpc_id }}"
+    rules:
+      - proto: tcp
+        cidr_ip: 10.0.0.0/8
+        ports:
+          - 9200
+          - 9300
+  register: es_sg
+
+- set_fact:
+    group_id: "{{ es_sg['group_id'] }}"
+
+# Creates Elastic Search domain
+# ----------------------------------------------------
+- name: check for existing Elasticsearch cluster
+  shell: aws es describe-elasticsearch-domains --region {{ aws_region }} --domain-names {{ domain_name }}
+  register: elasticsearch_cluster_query
+
+- name: parse Elasticsearch cluster query
+  set_fact:
+    elasticsearch_cluster: "{{ (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0] }}"
+  when: (elasticsearch_cluster_query.stdout | from_json).DomainStatusList | length > 0
+
+- debug:
+    msg: "{{ lookup('template', 'create-elasticsearch-domain.txt') }}"
+
+- name: create Elasticsearch cluster
+  shell: "{{ lookup('template', 'create-elasticsearch-domain.txt') }}"
+  when: elasticsearch_cluster is not defined
+  register: create_output
+
+- set_fact:
+    elasticsearch_cluster_create: {{ create_output['stdout'] | from_json }}
+  when: create_output is defined

@@ -1,0 +1,1 @@
+aws es delete-elasticsearch-domain --domain-name {{ domain_name }}
