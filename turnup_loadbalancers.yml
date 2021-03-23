@@ -1,0 +1,75 @@
+---
+# Ansible script to lunch a VPC, private and public subnets:
+#
+# To setup the cluster sample for staging environment:
+#
+#   $ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook --ask-vault-pass devops/service.yml
+
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - include: tasks/facts.yml
+
+    - name: create elb target groups
+      elb_target_group:
+        name: "{{ platform_name }}-{{ env_name }}-{{ service_id }}"
+        protocol: http
+        port: "{{ service_port }}"
+        vpc_id: "{{ vpc_id }}"
+        health_check_protocol: http
+        health_check_path: /service-check/
+        health_check_port: "{{ service_port }}"
+        successful_response_codes: "200,302"
+        state: present
+        target_type: ip
+
+    - elb_application_lb:
+        name: "{{ platform_name }}-alb"
+        scheme: internet-facing
+        security_groups:
+          - "{{ vpc_security_group_ids['limited-public-https'] }}"
+        subnets:
+          - "{{ vpc_subnet_ids['public-a'] }}"
+          - "{{ vpc_subnet_ids['public-b'] }}"
+        listeners:
+          - Protocol: HTTPS
+            Port: 443
+            Certificates:
+              - CertificateArn: "{{ certificate }}"
+            SslPolicy: ELBSecurityPolicy-2016-08
+            DefaultActions:
+              - Type: forward
+                TargetGroupName: "{{ platform_name }}-{{ env_name }}-{{ service_id }}"
+          - Protocol: HTTP
+            Port: 80
+            DefaultActions:
+              - Type: redirect
+                RedirectConfig:
+                  Protocol: "HTTPS"
+                  Port: "443"
+                  Host: "#{host}"
+                  Path: "/#{path}"
+                  Query: "#{query}"
+                  StatusCode: "HTTP_301"
+        tags:
+          AppTarget: "{{ service_id }}"
+        state: present
+      register: created_albs
+
+    - debug: 
+       var: created_albs
+      
+    - include_role:
+        name: update_route53
+      vars:
+        record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
+        hosted_zone_id: "{{ created_albs.canonical_hosted_zone_id }}"
+        dns_name: "{{ created_albs.dns_name }}"

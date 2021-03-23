@@ -1,0 +1,74 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/turndown_loadbalancers.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    # Turning down LB
+    # -------------------------------------
+    - name: grab zone id
+      route53_zone:
+        zone: "{{ zone }}"
+      register: routes_info
+
+    - debug:
+        var: routes_info
+
+    - elb_application_lb_info:
+        names:
+          - "{{ platform_name }}-alb"
+      register: lbs_info
+
+    - set_fact:
+        lb_info: "{{ lbs_info['load_balancers'] | first }}"
+      when: lbs_info['load_balancers'] | length > 0
+
+    - debug:
+        var: lb_info
+
+    - debug:
+        msg: "record: {{ platform_name }}-{{ service_id }}.{{ zone }}"
+
+    - include_role:
+        name: delete_route53_record
+      vars:
+        record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
+        hosted_zone_id: "{{ lb_info.canonical_hosted_zone_id }}"
+        dns_name: "{{ lb_info.dns_name }}"
+      when: lb_info is defined
+
+    #- name: delete routes
+      #route53:
+        #state: absent
+        #zone: "{{ zone }}"
+        #record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
+        #type: A
+        #alias: yes
+        #alias_hosted_zone_id: "{{ item.canonical_hosted_zone_id }}"
+        #alias_evaluate_target_health: yes
+        #value: "{{ item.dns_name }}"
+        #overwrite: yes
+      #loop: "{{ lbs_info.load_balancers }}"
+
+    - name: deleting load balancers
+      elb_application_lb:
+        name: "{{ platform_name }}-alb"
+        state: absent
+
+    - name: deleting target groups
+      elb_target_group:
+        name: "{{ platform_name }}-{{ env_name }}-{{ service_id }}"
+        state: absent
+        target_type: ip
+        protocol: "https"
+        port: 443
+        vpc_id: "{{ vpc_id }}"
