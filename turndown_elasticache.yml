@@ -4,7 +4,6 @@
 #
 - hosts: localhost
   vars:
-    platform_name: textilia
     env_name: development
   vars_files:
     - "vars/credentials.yml"
