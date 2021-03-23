@@ -1,0 +1,69 @@
+- name: subnet group
+  rds_subnet_group:
+    state: present
+    name: "{{ platform_name + '-rds-sg' }}"
+    region: "{{ aws_region }}"
+    description: "{{ platform_name }} VPC persistence subnets"
+    subnets: "{{ rds_subnets }}"
+
+- ec2_group:
+    name: limited-ecs
+    description: security group flag for ecs containers.
+    vpc_id: "{{ vpc_id }}"
+    rules:
+      # Allows connections only for itselfs.
+      - proto: all
+        group_name: limited-ecs
+  register: sg_limited_ecs
+
+- ec2_group_info:
+    filters:
+      vpc-id: "{{ vpc_id }}"
+      group-name: limited-ecs
+  register: sg_info
+
+- name: Give access to ECS security group
+  set_fact:
+    rds_rules: "{{ rds_rules|default([]) + [{'proto': 'tcp', 'ports': [5432], 'group_id': item}] }}"
+  with_items: "{{ sg_info | json_query('security_groups[*].group_id') }}"
+
+- rds_param_group:
+    description: "Add SSL"
+    engine: "postgres11"
+    name: secure-transport-11
+    state: present
+    params:
+      rds.force_ssl: "1"
+    tags:
+      Environment: "{{ env_name }}"
+
+- name: creates VPC security groups
+  ec2_group:
+    name: "limited-rds"
+    description: "Limited and private accesss only to instances from microservices"
+    vpc_id: "{{ vpc_id }}"
+    rules: "{{ rds_rules }}"
+  register: rds_group
+
+- name: Creates database
+  rds:
+    command: create
+    instance_name: "{{ platform_name + '-rds' }}"
+    db_engine: postgres
+    engine_version: 11
+    instance_type: db.t3.micro
+    size: 10
+    db_name: "{{ platform_name }}"
+    username: "{{ dbadmin_user }}"
+    password: "{{ dbadmin_pass }}"
+    region: "{{aws_region}}"
+    subnet: "{{ platform_name + '-rds-sg' }}"
+    parameter_group: "secure-transport-11"
+    vpc_security_groups: "{{ rds_group['group_id'] }}"
+    publicly_accessible: false
+    wait: yes
+    wait_timeout: 600
+    tags:
+      Name: "{{env_name}}-rds-services"
+      Environment: "{{ env_name }}"
+      VPC: "{{ platform_name }}"
