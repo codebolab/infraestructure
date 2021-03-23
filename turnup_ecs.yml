@@ -1,0 +1,137 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/deploy.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - include: tasks/facts.yml
+
+    - name: Creates required role to attach to task definition
+      iam_role:
+        name: ecs-role
+        assume_role_policy_document: "{{ lookup('template','templates/ecs.policy.json') }}"
+        managed_policy:
+          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+          - arn:aws:iam::aws:policy/CloudWatchFullAccess
+      register: ecs_role_output
+
+    - elb_target_group_info:
+        names:
+          - "{{ platform_name }}-{{ env_name }}-{{ service_id }}"
+      register: target_groups_info
+
+    - set_fact:
+        target_groups: "{{ target_groups | default({}) | combine({item.target_group_name: item.target_group_arn}) }}"
+      loop: "{{ target_groups_info['target_groups'] }}"
+
+    - name: Get elasticache info
+      elasticache_info:
+        name: "{{ platform_name }}"
+      register: elasticache_info
+
+    - name: Look for RDS details
+      rds_instance_info:
+        region: "{{ aws_region }}"
+        db_instance_identifier: "{{ platform_name }}-rds"
+      register: rds_facts
+
+    - set_fact:
+        api_targets: "{{ platform_name }}-{{ env_name }}-{{ service_id }}"
+
+    - elb_target_group_info:
+        names:
+          - "{{ api_targets }}"
+      register: target_groups_info
+
+    - set_fact:
+        target_groups: "{{ target_groups | default({}) | combine({item.target_group_name: item.target_group_arn}) }}"
+      loop: "{{ target_groups_info['target_groups'] }}"
+
+    - iam_role_info:
+        name: ecs-role
+      register: ecs_role
+
+    - set_fact:
+        redis_info: "{{ elasticache_info['elasticache_clusters'][0]['cache_nodes'][0]['endpoint'] }}"
+        rds_info: "{{ rds_facts['instances'][0]['endpoint'] }}"
+
+    # Publish new docker image into ECS
+    # -----------------------------------------
+    - include_role:
+        name: docker_publish
+      vars:
+        version: "{{ env_name }}"
+        tag_name: "{{ env_name }}"
+
+    # Publish new service in ECS
+    # -----------------------------------------
+    - ecs_cluster:
+        name: "{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+        state: present
+      register: cluster_output
+
+    - include_role:
+        name: ecs_service
+      vars:
+        app_tag: "{{ env_name }}"
+        role_arn: "{{ (ecs_role['iam_roles'] | first)['arn'] }}"
+        new_revision: "{{ lookup('env','API_TASKDEFINITION_REVISION') | default(-1, true) | int }}"
+        security_groups:
+          - "{{ vpc_security_group_ids['limited-public-https'] }}"
+          - "{{ vpc_security_group_ids['limited-ecs'] }}"
+          - "{{ vpc_security_group_ids['limited-rds'] }}"
+          - "{{ vpc_security_group_ids['limited-ec'] }}"
+        subnets:
+          - "{{ vpc_subnet_ids['public-a'] }}"
+          - "{{ vpc_subnet_ids['public-b'] }}"
+        target_group_arn: "{{ target_groups[api_targets] }}"
+        app_vars:
+          - name: SECRET_KEY
+            value: secret
+          - name: API_KEY
+            value: secret
+          - name: APP_DOMAIN
+            value: "https://{{ platform_name }}.{{ zone }}"
+          - name: API_DOMAIN
+            value: "https://{{ platform_name }}-{{ service_id }}.{{ zone }}"
+          - name: ENVIRONMENT
+            value: "{{ env_name }}"
+          - name: REDIS_HOST
+            value: "{{ redis_info['address'] }}"
+          - name: REDIS_PORT
+            value: "{{ redis_info['port'] }}"
+          - name: POSTGRES_DB
+            value: "{{ platform_name }}"
+          - name: POSTGRES_USER
+            value: "{{ dbadmin_user }}"
+          - name: POSTGRES_PASSWORD
+            value: "{{ dbadmin_pass }}"
+          - name: POSTGRES_HOST
+            value: "{{ rds_info['address'] }}"
+          - name: CELERY_BROKER_URL
+            value: "redis://{{ redis_info['address'] }}:{{ redis_info['port'] }}/0"
+          - name: CONSTANCE_REDIS_CONNECTION
+            value: "redis://{{ redis_info['address'] }}:{{ redis_info['port'] }}/0"
+          - name: SPREADSHEET_ID
+            value: 1DyQFZkftMVFD80JeLmPpR4HhyhQK2zv7w5QZuqPSwas
+          - name: AWS_ACCESS_KEY_ID
+            value: "{{ aws_access_key }}"
+          - name: AWS_SECRET_ACCESS_KEY
+            value: "{{ aws_secret_key }}"
+          - name: AWS_S3_REGION_NAME
+            value: "{{ aws_region }}"
+          - name: AWS_STORAGE_BUCKET_NAME
+            value: "{{ s3_bucket }}"
+          - name: ELASTICSEARCH_HOST
+            value: vpc-textiliasearch-ei2dg6rdmovx3gfe2ig2pc7p74.us-east-1.es.amazonaws.com
+          - name: ELASTICSEARCH_PORT
+            value: 443

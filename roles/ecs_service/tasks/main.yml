@@ -1,0 +1,100 @@
+# Params:
+# - `env_name`: Environment name [development, testing, staging, productiozn]
+# - `service_id`: Application name.
+# - `aws_region`: AWS region.
+# - `ecr_repo`: URL for the repo from AWS ECR.
+# - `group_id`: Security group id
+
+- set_fact:
+    ecr_repo: "{{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+- cloudwatchlogs_log_group_info:
+    log_group_name: "ecs-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+  register: log_group_service
+
+- cloudwatchlogs_log_group:
+    state: present
+    log_group_name: "ecs-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    tags:
+      Name: "ecs-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+      Service: "{{ service_id }}"
+      Environment: "{{ env_name }}"
+  when: log_group_service['log_groups']|length == 0
+  register: service_loggroup
+
+- ecs_taskdefinition_info:
+    task_definition: "td-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+  register: td_current
+
+- debug:
+    var: td_current
+
+- name: revision from current
+  set_fact:
+    revision: "{{ td_current['revision'] }}"
+  when: (new_revision is not defined or (new_revision | int)  < 1) and td_current.revision is defined
+
+- name: revision set to one
+  set_fact:
+    revision: 1
+  when: (new_revision is not defined or (new_revision | int)  < 1) and td_current.revision is not defined
+
+- name: revision set from new_revision
+  set_fact:
+    revision: "{{ new_revision | int }}"
+  when: new_revision is defined and ((new_revision | int) > 0)
+
+- debug:
+    msg: "{{env_name}}: {{ platform_name }} task definition revision number is {{ revision }}"
+
+- debug:
+    msg: "Image to use: {{ ecr_repo }}/{{ platform_name }}:{{ app_tag | default('latest') }}"
+
+- name: Create task definition for {{ platform_name }} / {{ service_id }} Service
+  ecs_taskdefinition:
+    state: present
+    cpu: 512
+    memory: 1024
+    family: "td-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    containers:
+    - name: "{{ platform_name }}-{{ service_id }}"
+      essential: true
+      image: "{{ ecr_repo }}/{{ platform_name }}:{{ app_tag | default('latest') }}"
+      portMappings:
+      - containerPort: "{{ service_port }}"
+        hostPort: "{{ service_port }}"
+      environment: "{{ app_vars | default({}) }}"
+      logConfiguration:
+        logDriver: awslogs
+        options:
+          awslogs-create-group: "true"
+          awslogs-group: "ecs-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+          awslogs-region: "{{ aws_region }}"
+          awslogs-stream-prefix: ecs
+    launch_type: FARGATE
+    execution_role_arn: "{{ role_arn }}"
+    network_mode: awsvpc
+    revision: "{{ revision }}"
+  register: service_taskdefinition
+
+- debug:
+    var: service_taskdefinition
+
+- name: Create ECS service for {{ platform_name }} / {{ service_id }} service
+  ecs_service:
+    state: present
+    name: "service-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    cluster: "{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    task_definition: '{{ service_taskdefinition["taskdefinition"]["family"] }}:{{ service_taskdefinition["taskdefinition"]["revision"] }}'
+    force_new_deployment: yes
+    desired_count: "{{ task_count | default(1) }}"
+    launch_type: FARGATE
+    network_configuration:
+      assign_public_ip: yes
+      security_groups: "{{ security_groups }}"
+      subnets: "{{ subnets }}"
+    load_balancers:
+      - targetGroupArn: "{{ target_group_arn }}"
+        containerName: "{{ platform_name }}-{{ service_id }}"
+        containerPort: "{{ service_port }}"
+  register: service_outpu

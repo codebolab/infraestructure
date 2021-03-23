@@ -1,0 +1,47 @@
+# Creates a repository in ECR if it doesn't exist, creates a docker image and
+# publish it into the repository.
+#
+# Params:
+# - `account_id`: AWS Account id
+# - `aws_region`: AWS region.
+# - `platform_name`: Application name.
+# - `version`: version of docker the image
+# - `tag_name` (optional): Docker tag name
+
+- set_fact:
+    dockerfile_path: "{{ playbook_dir | dirname }}"
+  when: dockerfile_path is not defined
+
+- debug:
+    msg: "Dockerfile: {{ dockerfile_path }}/Dockerfile"
+
+- name: Create docker image registry
+  ecs_ecr:
+    name: "{{ platform_name }}"
+    region: "{{ aws_region }}"
+
+# docker build -t textilia:development .
+- name: Build Docker image
+  docker_image:
+    name: "{{ platform_name }}"
+    state: present
+    source: build
+    build:
+      nocache: "{{ nocache | default('no') }}"
+      path: "{{ dockerfile_path }}"
+      pull: no
+      rm: yes
+    force_source: "{{ force_source | default('yes') }}"
+    tag: "{{ tag_name | default('development') }}"
+
+- name: ECR login
+  shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+- name: Docker tag
+  shell: "docker tag {{ platform_name }}:{{ tag_name | default('development') }} {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ platform_name }}:{{ version }}"
+
+- debug:
+    msg: "Publish into {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ platform_name }}:{{ version }}"
+
+- name: Docker publish from shell
+  shell: "docker push {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ platform_name }}:{{ version }}"
