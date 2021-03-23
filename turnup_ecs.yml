@@ -132,6 +132,6 @@
           - name: AWS_STORAGE_BUCKET_NAME
             value: "{{ s3_bucket }}"
           - name: ELASTICSEARCH_HOST
-            value: vpc-textiliasearch-ei2dg6rdmovx3gfe2ig2pc7p74.us-east-1.es.amazonaws.com
+            value: "{{ es_host | default('127.0.0.1') }}"
           - name: ELASTICSEARCH_PORT
-            value: 443
+            value: "{{ es_port | default(6379) }}"
