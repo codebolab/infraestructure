@@ -1,0 +1,25 @@
+- name:
+  route53_info:
+    query: hosted_zone
+  register: hosted_zones
+
+- set_fact:
+    zone_info: "{{ hosted_zones | json_query(query) }}"
+  vars:
+    query: "HostedZones[?Name=='{{ zone }}.'] | [0]"
+
+- set_fact:
+    zone_id: "{{ zone_info.Id }}"
+  when: zone_info != ''
+
+- debug:
+    msg: "{{ lookup('template', 'delete-resource-record-sets.txt') }}"
+  when: zone_id is defined
+
+- name: delete route53 record in zone
+  shell: "{{ lookup('template', 'delete-resource-record-sets.txt') }}"
+  register: create_output
+  when: zone_id is defined
+
+- debug:
+    var: create_output

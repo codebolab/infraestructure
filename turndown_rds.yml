@@ -1,0 +1,49 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/turndown_rds.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - name: Account information
+      aws_caller_info:
+      register: caller_info
+
+    - set_fact:
+        account_id: "{{ caller_info['account'] }}"
+        rds_subnets: "{{ subnets['public'].values() }}"
+
+    - debug:
+        var: rds_subnets
+
+    # Turning down RDS
+    # -------------------------------------
+    - name: remove the DB instance without a final snapshot
+      rds_instance:
+        id: "{{ platform_name }}-rds"
+        state: absent
+        skip_final_snapshot: True
+
+    - name: Delete group limited-rds
+      ec2_group:
+        name: "limited-rds"
+        vpc_id: "{{ vpc_id }}"
+        state: absent
+
+    - name: Delete group limited-ecs
+      ec2_group:
+        name: "limited-ecs"
+        vpc_id: "{{ vpc_id }}"
+        state: absent
+
+    - rds_subnet_group:
+        state: absent
+        name: "{{ platform_name + '-rds-sg' }}"

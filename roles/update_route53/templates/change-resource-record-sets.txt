@@ -1,0 +1,1 @@
+AWS_ACCESS_KEY_ID={{ aws_access_key }} AWS_SECRET_ACCESS_KEY={{ aws_secret_key }} AWS_DEFAULT_REGION={{ aws_region }} aws route53 change-resource-record-sets --hosted-zone-id {{ zone_id }} --change-batch '{{ lookup("template", "change-batch.json") | to_json }}'

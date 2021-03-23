@@ -1,0 +1,42 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/turndown_ecs.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - name: Account information
+      aws_caller_info:
+      register: caller_info
+
+    - set_fact:
+        account_id: "{{ caller_info['account'] }}"
+        rds_subnets: "{{ subnets['public'].values() }}"
+
+    - debug:
+        var: rds_subnets
+
+    # Turn down ECS tasks
+    # -------------------------------------
+    - block:
+        - include_role:
+            name: ecs_service_destroy
+          vars:
+            app_name: "{{ service_id }}"
+            nopause: true
+      rescue:
+        - debug:
+            msg: "Couldn't delete ecs service {{ service_id }}"
+
+    - ecs_cluster:
+        name: "{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+        state: absent
+

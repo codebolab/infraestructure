@@ -1,0 +1,73 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/elasticache.yml
+#
+- hosts: localhost
+  vars:
+    version: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - name: Account information
+      aws_caller_info:
+      register: caller_info
+
+    - set_fact:
+        account_id: "{{ caller_info['account'] }}"
+
+    - debug:
+        var: account_id
+
+    - ec2_group_info:
+        filters:
+          vpc-id: "{{ vpc_id }}"
+          group-name: limited-ecs
+      register: sg_info
+
+    - name: creates VPC security group
+      ec2_group:
+        name: "limited-ec"
+        description: "Limited and private accesss only to instances from instances"
+        vpc_id: "{{ vpc_id }}"
+        rules:
+          - proto: tcp
+            ports:
+              - 6379
+            group_id': "{{ sg_info | json_query('security_groups[*].group_id') }}"
+          - proto: tcp
+            ports:
+              - 6379
+            group_name: "limited-ec"
+      register: ec_group
+
+    - debug:
+        var: ec_group
+
+    - name: Add or change a subnet group
+      elasticache_subnet_group:
+        state: present
+        name: "{{ platform_name }}-cache"
+        description: Redis subnet group
+        region: "{{ aws_region }}"
+        subnets:
+          - "{{ subnets['public']['public-a'] }}"
+
+    - name: Create Elasticache Nodes
+      elasticache:
+        state: present
+        name: "{{ platform_name }}"
+        engine: redis
+        node_type: cache.t3.micro
+        num_nodes: 1
+        cache_port: 6379
+        cache_subnet_group: "{{ platform_name }}-cache"
+        security_group_ids:
+          - "{{ ec_group['group_id'] }}"
+        zone: "{{ aws_region }}a"
+        region: "{{ aws_region }}"
+        wait: yes

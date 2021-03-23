@@ -1,0 +1,30 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/turndown_elasticsearch.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - include: tasks/facts.yml
+
+    # Delete elasticsearch.
+    - name: Destroy elasticsearch server in AWS
+      include_role:
+        name: elasticsearch_destroy
+      vars:
+        domain_name: "{{ platform_name }}search"
+
+    # Delete security group
+    - name: Delete group limited-elasticsearch
+      ec2_group:
+        name: "{{ platform_name }}-elasticsearch"
+        vpc_id: "{{ vpc_id }}"
+        state: absent

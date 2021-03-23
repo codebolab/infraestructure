@@ -1,0 +1,28 @@
+# Call with:
+#
+#   $ ansible-playbook --ask-vault-pass playbooks/rds.yml
+#
+- hosts: localhost
+  vars:
+    env_name: development
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - name: Account information
+      aws_caller_info:
+      register: caller_info
+
+    - set_fact:
+        account_id: "{{ caller_info['account'] }}"
+        rds_subnets: "{{ subnets['public'].values() }}"
+
+    - debug:
+        var: rds_subnets
+
+    - include_role:
+        name: rds_database

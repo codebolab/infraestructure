@@ -1,0 +1,19 @@
+---
+# Service
+platform_name: example 
+service_id: api
+service_port: 80
+
+# AWS
+s3_bucket: examplelake
+
+# Network
+vpc_id: vpc-xxxxxxxxxxx
+subnets:
+  public:
+    public-a: subnet-xxxxxxxxxxx
+    public-b: subnet-xxxxxxxxxxx
+
+# DNS
+zone: example.com
+certificate: arn:aws:acm:us-east-1:xxxxxxxxxxx:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx

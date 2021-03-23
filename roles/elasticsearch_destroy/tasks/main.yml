@@ -1,0 +1,19 @@
+- name: check for existing Elasticsearch cluster
+  shell: aws es describe-elasticsearch-domains --region {{ aws_region }} --domain-names {{ domain_name }}
+  register: elasticsearch_cluster_query
+
+- name: Gets Elasticsearch cluster query
+  set_fact:
+    elasticsearch_cluster: "{{ (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0] }}"
+  when: (elasticsearch_cluster_query.stdout | from_json).DomainStatusList | length > 0
+
+- debug:
+    msg: "{{ lookup('template', 'delete-elasticsearch-domain.txt') }}"
+
+- name: create Elasticsearch cluster
+  shell: "{{ lookup('template', 'delete-elasticsearch-domain.txt') }}"
+  when: elasticsearch_cluster is defined
+  register: create_output
+
+- debug:
+    var: create_output

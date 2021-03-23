@@ -1,0 +1,16 @@
+{
+  "Changes": [
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "{{ record }}",
+        "Type": "A",
+        "AliasTarget": {
+          "DNSName": "{{ dns_name }}",
+          "EvaluateTargetHealth": true,
+          "HostedZoneId": "{{ hosted_zone_id }}"
+        }
+      }
+    }
+  ]
+}
