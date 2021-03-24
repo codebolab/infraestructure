@@ -1,0 +1,11 @@
+---
+# Service
+platform_name: example 
+service_id: api
+service_port: 80
+
+# AWS
+s3_bucket: examplelake
+
+# DNS
+zone: example.com
