@@ -13,9 +13,6 @@
     var: vpc_cidr_block
 
 - debug:
-    var: cluster_name
-
-- debug:
     var: aws_region
 
 - name: Creates VPC

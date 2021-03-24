@@ -1,6 +1,6 @@
 # To execute:
 #
-#    $ ansible-playbook destroy_cluster.yml
+#    $ ansible-playbook --ask-vault-pass playbooks/destroy_cluster.yml
 #
 
 - hosts: localhost
