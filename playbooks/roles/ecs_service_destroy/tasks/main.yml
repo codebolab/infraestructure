@@ -1,0 +1,34 @@
+# Get task arns
+- shell: "aws ecs list-tasks --cluster {{ platform_name }}-{{ service_id }}-{{ env_name }}  --service-name service-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+  register: list_tasks_raw
+  failed_when:
+    - '"An error occurred" in list_tasks_raw.stderr'
+    - '"ServiceNotFoundException" not in list_tasks_raw.stderr'
+
+- set_fact:
+    tasks_arns:
+      taskArns: []
+
+- set_fact:
+    tasks_arns: "{{ list_tasks_raw['stdout'] | from_json }}"
+  when: list_tasks_raw['stdout'] != ""
+
+# Stop tasks
+- name: Stop a task
+  ecs_task:
+    operation: stop
+    cluster: "{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    task_definition: "td-{{ platform_name }}-{{ service_id }}-{{ env_name }}"
+    task: "{{ item }}"
+  loop: "{{ tasks_arns['taskArns'] }}"
+
+# Delete service
+- block:
+  - shell: "aws ecs delete-service --cluster {{ platform_name }}-{{ service_id }}-{{ env_name }} --service service-{{ platform_name }}-{{ service_id }}-{{ env_name }} --force"
+    register: service_delete_raw
+  ignore_errors: yes
+
+# Wait some seconds to finish deletion.
+- pause:
+    seconds: "{{ wait_draining | default(90) }}"
+  when: service_delete_raw is succeeded
