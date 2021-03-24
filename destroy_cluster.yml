@@ -14,7 +14,8 @@
     AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
     AWS_DEFAULT_REGION: "{{ aws_region }}"
   tasks:
-    - include: tasks/facts.yml
+    - include_role:
+        name: cluster_facts
 
     # Turning down ec2 instances
     # -------------------------------------------
