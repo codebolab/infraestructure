@@ -1,0 +1,132 @@
+# Internet Gateway
+# ---------------------------------------
+- name: creates internet gateway
+  ec2_vpc_igw:
+    vpc_id: "{{ vpc_id }}"
+    tags:
+      Environment: "{{ env_name }}"
+  register: created_gateway
+
+# EIP for NAT gateway
+# --------------------------------------
+- name: creating EIP for natway
+  block:
+    - ec2_eip_info:
+        filters:
+          tag:Name: "{{ platform_name }}-nat"
+      register: nat_eip
+
+    - debug:
+        var: nat_eip
+
+    - name: allocate eip for nat
+      ec2_eip:
+        region: "{{ aws_region }}"
+        in_vpc: yes
+        reuse_existing_ip_allowed: yes
+        tag_name: "Name"
+        tag_value: "{{ platform_name }}-nat"
+      register: eip_created
+      when: nat_eip['addresses']|length == 0
+
+    - debug:
+        var: eip_created
+
+    - ec2_tag:
+        region: "{{ aws_region }}"
+        resource: "{{ eip_created['allocation_id'] }}"
+        state: present
+        tags:
+          Name: "{{ platform_name }}-nat"
+      when: eip_created.skipped is not defined
+
+    - ec2_eip_info:
+        filters:
+          tag:Name: "{{ platform_name }}-nat"
+      register: nat_eip
+
+    - debug:
+        var: nat_eip
+  when: private is defined and private
+
+# NAT Gateway
+# ------------------------------------
+- name: Creating NAT Gateway
+  block:
+    - name: Get facts about getway
+      ec2_vpc_nat_gateway_info:
+        region: "{{ aws_region }}"
+        filters:
+          subnet-id: "{{ vpc_subnet_ids['public-a'] }}"
+          state: ['available']
+      register: nat_gateways
+
+    - debug:
+        var: nat_gateways
+
+    - name: creates NAT gateway
+      ec2_vpc_nat_gateway:
+        subnet_id: "{{ vpc_subnet_ids['public-a'] }}"
+        region: "{{ aws_region }}"
+        eip_address: "{{ nat_eip['addresses'][0]['public_ip'] }}"
+        wait: yes
+        if_exist_do_not_create: true
+      register: created_nat_gateway
+      when: nat_gateways['result'] | length == 0
+
+    - debug:
+        var: created_nat_gateway
+
+    - name: Get facts about VPC nat gateway
+      ec2_vpc_nat_gateway_info:
+        region: "{{ aws_region }}"
+        filters:
+          subnet-id: "{{ vpc_subnet_ids['public-a'] }}"
+          state: ['available']
+      register: nat_gateways
+
+    - debug:
+        var: nat_gateways
+
+    - name:
+      set_fact:
+        nat_gateway: "{{ nat_gateways['result'][0] }}"
+
+    - name:
+      set_fact:
+        vpc_nat_gateway_id: "{{ nat_gateway.nat_gateway_id }}"
+        vpc_nat_gateway_ip: "{{ nat_gateway.nat_gateway_addresses[0].public_ip }}"
+  when: private is defined and private
+
+# Routes
+# -------------------------------------
+- name: set facts for Gateway IDs and IP
+  set_fact:
+    vpc_gateway_id: "{{ created_gateway.gateway_id }}"
+
+- name: creates route table for private subnets
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    tags:
+      Name: "{{ platform_name }}-private"
+      Environment: "{{ env_name }}"
+    subnets:
+      - "{{ vpc_subnet_ids['private-a'] }}"
+      - "{{ vpc_subnet_ids['private-b'] }}"
+    routes:
+      - dest: 0.0.0.0/0
+        nat_gateway_id: "{{ vpc_nat_gateway_id }}"
+  when: vpc_nat_gateway_id is defined
+
+- name: create route table for public subnets
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    tags:
+      Name: "{{ platform_name }}-public"
+      Environment: "{{ env_name }}"
+    subnets:
+      - "{{ vpc_subnet_ids['public-a'] }}"
+      - "{{ vpc_subnet_ids['public-b'] }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ vpc_gateway_id }}"

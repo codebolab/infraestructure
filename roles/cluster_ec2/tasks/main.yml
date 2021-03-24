@@ -1,0 +1,86 @@
+# Creates ec2 instances
+#
+# Params:
+# - platform_name: VPC Name
+# - env_name: Environment Name
+# - aws_region: AWS Region
+# - instances: Dictionary with details about the instances.
+# - vpc_subnet_ids: Dictionary name:id
+# - vpc_security_group_ids: Dictionary name:id
+# - public_ip: IP public of the instance.
+# - subnet_name: name of the subnet where to store.
+
+- debug:
+    var: vpc_security_group_ids
+
+- debug:
+    var: instances
+
+- debug:
+    msg: "group_ids: {{ ['limited-public-https', 'limited-public-ssh'] | map('extract', vpc_security_group_ids) | list }}"
+
+- name: Provision ec2 instances
+  ec2:
+    exact_count: "{{ item.value['count'] }}"
+    key_name: "{{ platform_name }}"
+    instance_type: "{{ item.value['instance_type'] }}"
+    region: "{{ aws_region }}"
+    image: "{{ item.value['ami'] }}"
+    vpc_subnet_id: "{{ vpc_subnet_ids[subnet_name] }}"
+    group_id: "{{ item.value['groups'] | map('extract', vpc_security_group_ids) | list }}"
+    assign_public_ip: no
+    wait: yes
+    wait_timeout: 500
+    volumes:
+      - device_name: /dev/xvda
+        volume_type: gp2
+        volume_size: "{{ item.value['volume_size'] }}"
+        delete_on_termination: False
+    instance_tags:
+      Name: "{{ platform_name }}-{{ item.key }}"
+      Environment: "{{ env_name }}"
+      VPC: "{{ platform_name }}"
+    count_tag:
+      Name: "{{ platform_name }}-{{ item.key }}"
+  loop: "{{ instances | dict2items }}"
+  when: instances is defined
+  register: created_instances
+
+- debug:
+    var: created_instances
+
+- ec2_instance_info:
+    filters:
+        "tag:Environment": "{{ env_name }}"
+        instance-state-name: ['running', 'shutting-down', 'stopping']
+  register: ec2_facts
+
+- debug:
+    var: ec2_facts
+
+- name: "set facts: ec2_instances"
+  set_fact:
+    ec2_instances: "{{ ec2_instances | default({}) | combine({ (item.tags.Name | default(item.instance_id)): item.instance_id }) }}"
+  loop: "{{ ec2_facts['instances'] }}"
+
+- debug:
+    var: platform_name
+
+- debug:
+    var: ec2_instances[platform_name + '-head']
+
+- name: "set facts: ec2_ips"
+  set_fact:
+    ec2_ips: "{{ ec2_ips | default({}) | combine({ (item.tags.Name | default(item.instance_id)): item.private_ip_address }) }}"
+  loop: "{{ ec2_facts['instances'] }}"
+
+- debug:
+    var: ec2_ips
+
+- name: associate new elastic IPs with each of the instances
+  ec2_eip:
+    device_id: "{{ ec2_instances[platform_name + '-head'] }}"
+    in_vpc: yes
+    reuse_existing_ip_allowed: yes
+    public_ip: "{{ public_ip }}"
+

@@ -1,0 +1,40 @@
+---
+# Ansible script to lunch a VPC with public subnets only:
+#
+# Execute with:
+#
+#   $ ansible-playbook --ask-vault-pass cluster_public.yml
+#
+- hosts: localhost
+  vars:
+    env_name: "development"
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - name: Creating cluster
+      include_role:
+        name: cluster_vpc
+      vars:
+        public: yes
+        private: no
+
+    - name: Creating EC2 key 
+      include_role:
+        name: cluster_vpckey
+
+    - name: Creating gateways
+      include_role:
+        name: cluster_gateways
+      vars:
+        private: no
+
+    - name: Creating gateways
+      include_role:
+        name: cluster_head
+      vars:
+        subnet_name: public-a

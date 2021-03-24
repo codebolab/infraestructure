@@ -1,0 +1,22 @@
+# Creates a ec2 key for a VPC
+# Params:
+# - platform_name: VPC name
+# - aws_region: AWS Region
+# 
+- name: Create directory for private
+  file:
+    path: "{{ playbook_dir | dirname }}/private"
+    state: directory
+
+- name: Create an EC2 key
+  ec2_key:
+    name: "{{ platform_name }}"
+    region: "{{ aws_region }}"
+  register: ec2_key
+
+- name: Save private key
+  copy:
+    content: "{{ ec2_key.key.private_key }}"
+    dest: "{{ playbook_dir | dirname }}/private/{{ platform_name }}.pem"
+    mode: 0600
+  when: ec2_key.changed

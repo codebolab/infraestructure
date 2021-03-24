@@ -1,0 +1,105 @@
+---
+- name: Account information
+  aws_caller_info:
+  register: caller_info
+
+- set_fact:
+    account_id: "{{ caller_info['account'] }}"
+
+- debug:
+    var: platform_name
+
+- debug:
+    var: vpc_cidr_block
+
+- debug:
+    var: cluster_name
+
+- debug:
+    var: aws_region
+
+- name: Creates VPC
+  ec2_vpc_net:
+    name: "{{ platform_name }}"
+    state: present
+    cidr_block: "{{ vpc_cidr_block }}"
+    region: "{{ aws_region }}"
+    tags:
+        Name: "{{ platform_name }}"
+    tenancy: default
+  register: created_vpc
+
+- name: "set fact: VPC ID"
+  set_fact:
+    vpc_id: "{{ created_vpc.vpc.id }}"
+
+- debug:
+    msg: "{{ public }} {{ public == 'yes' }}"
+
+- name: creates VPC public subnets
+  ec2_vpc_subnet:
+    vpc_id: "{{ vpc_id }}"
+    cidr: "{{ item.value.cidr }}"
+    az: "{{ item.value.az }}"
+    tags:
+      Name: "{{ item.key }}"
+  with_dict: "{{ vpc_subnets }}"
+  when: public and item.key.startswith('public')
+  register: public_vpc_subnets
+
+- debug:
+    var: public_vpc_subnets
+
+- name: creates VPC private subnets
+  ec2_vpc_subnet:
+    vpc_id: "{{ vpc_id }}"
+    cidr: "{{ item.value.cidr }}"
+    az: "{{ item.value.az }}"
+    tags:
+      Name: "{{ item.key }}"
+  with_dict: "{{ vpc_subnets }}"
+  when: private and item.key.startswith('private')
+  register: private_vpc_subnets
+
+#- debug:
+    #var: private_vpc_subnets
+
+# Fact: vpc_subnet_ids
+# ----------------------------
+- name: VPC subnet facts
+  ec2_vpc_subnet_info:
+    filters:
+      vpc-id: "{{ vpc_id }}"
+  register: vpc_subnet_facts
+
+- debug:
+    var: vpc_subnet_facts
+
+- name: "set facts: VPC subnet IDs"
+  set_fact:
+    vpc_subnet_ids: "{{ vpc_subnet_ids | default({}) | combine({ (item.tags.Name | default('default')): item.id }) }}"
+  loop: "{{ vpc_subnet_facts.subnets }}"
+
+- debug:
+    var: vpc_subnet_ids
+
+# Create security groups
+# ----------------------------
+- name: creates VPC security groups
+  ec2_group:
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    vpc_id: "{{ vpc_id }}"
+    rules: "{{ item.rules }}"
+  loop: "{{ vpc_security_groups }}"
+
+- name: VPC security group facts
+  ec2_group_facts:
+    filters:
+      vpc-id: "{{ vpc_id }}"
+  register: vpc_security_group_facts
+
+- name: "set facts: VPC security group IDs"
+  set_fact:
+    vpc_security_group_ids: "{{ vpc_security_group_ids | default({}) | combine({ (item.group_name | default('default')): item.group_id }) }}"
+  loop: "{{ vpc_security_group_facts.security_groups }}"

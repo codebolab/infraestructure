@@ -1,0 +1,132 @@
+# To execute:
+#
+#    $ ansible-playbook destroy_cluster.yml
+#
+
+- hosts: localhost
+  vars:
+    env_name: "{{ lookup('env', 'ENV_NAME') or 'development' }}"
+  vars_files:
+    - "vars/credentials.yml"
+    - "vars/platform.yml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  tasks:
+    - include: tasks/facts.yml
+
+    # Turning down ec2 instances
+    # -------------------------------------------
+    - name: deleting ec2-instances
+      ec2:
+        state: absent
+        instance_ids: "{{ ec2_instances.values() }}"
+      when: ec2_instances is defined and ec2_instances.values() | length > 0
+
+    # Turning down gateways
+    # -------------------------------------------
+    - name: delete public route table
+      ec2_vpc_route_table:
+        vpc_id: "{{ vpc_id }}"
+        tags:
+          Name: "{{ platform_name }}-public"
+          Environment: "{{ env_name }}"
+        lookup: tag
+        state: absent
+
+    - name: delete private route table
+      ec2_vpc_route_table:
+        vpc_id: "{{ vpc_id }}"
+        tags:
+          Name: "{{ platform_name }}-private"
+          Environment: "{{ env_name }}"
+        lookup: tag
+        state: absent
+
+    - name: Get facts about gateway
+      ec2_vpc_nat_gateway_info:
+        region: "{{ aws_region }}"
+        filters:
+          subnet-id: "{{ vpc_subnet_ids['public-a'] }}"
+          state: ['available']
+      register: nat_gateways
+      when: vpc_subnet_ids is defined and 'public-a' in vpc_subnet_ids
+
+    - name:
+      set_fact:
+        nat_gateway: "{{ nat_gateways['result'] | first }}"
+      when: nat_gateways.result is defined and nat_gateways.result | length > 0
+
+    - name: deletes NAT gateway
+      ec2_vpc_nat_gateway:
+        state: absent
+        nat_gateway_id: "{{ nat_gateway.nat_gateway_id }}"
+        wait: yes
+      when: nat_gateways.result is defined and nat_gateways.result | length > 0
+
+    - name: deletes internet gateway
+      ec2_vpc_igw:
+        vpc_id: "{{ vpc_id }}"
+        state: absent
+
+    # Delete subnets
+    # ------------------------------------------
+    - ec2_group_info:
+        filters:
+          vpc-id: "{{ vpc_id }}"
+      when: vpc_id != 'invalid'
+      register: groups_info
+
+    - set_fact:
+        groups_ids: "{{ groups_info | json_query('security_groups[*].group_id') }}"
+      when: vpc_id != 'invalid'
+
+    - debug:
+        var: groups_ids
+
+    - block:
+      - name: Deletes security groups
+        ec2_group:
+          group_id: "{{ item }}"
+          state: absent
+        when: groups_ids is defined
+        loop: "{{ groups_ids }}"
+      rescue:
+        - debug:
+            msg: "Couldn't delete all security groups"
+
+    #- name: Deletes subnets
+    - ec2_vpc_subnet_info:
+        filters:
+          vpc-id: "{{ vpc_id }}"
+      when: vpc_id != 'invalid'
+      register: subnets_info
+
+    - debug:
+        var: subnets_info
+
+    - set_fact:
+        subnets_blocks: "{{ subnets_info | json_query('subnets[*].cidr_block') }}"
+      when: vpc_id != 'invalid'
+
+    - name: Remove subnet for database servers
+      ec2_vpc_subnet:
+        state: absent
+        vpc_id: "{{ vpc_id }}"
+        cidr: "{{ item }}"
+      when: subnets_blocks is defined
+      loop: "{{ subnets_blocks }}"
+
+    # Deletes VPC
+    # ------------------------------------------
+    - name: deletes vpc
+      ec2_vpc_net:
+        name: "{{ platform_name }}"
+        state: absent
+        cidr_block: "{{ (vpc_facts.vpcs | first).cidr_block }}"
+      when: vpc_id != 'invalid'
+      register: result
+      until: result is succeeded
+      retries: 3
+      delay: 60

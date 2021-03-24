@@ -1,0 +1,59 @@
+ip_cidr: 10.0
+
+# VPC data
+vpc_cidr_block: "{{ ip_cidr }}.0.0/16"
+
+# Subnet data
+vpc_subnets:
+  public-a:
+    cidr: "{{ ip_cidr }}.0.0/24"
+    az: "{{ aws_region }}a"
+  public-b:
+    cidr: "{{ ip_cidr }}.1.0/24"
+    az: "{{ aws_region }}b"
+  private-a:
+    cidr: "{{ ip_cidr }}.2.0/24"
+    az: "{{ aws_region }}a"
+  private-b:
+    cidr: "{{ ip_cidr }}.3.0/24"
+    az: "{{ aws_region }}b"
+
+# Security groups data
+vpc_security_groups:
+  - name: allow-private-ssh
+    description: "Allow SSH from anyone on Clear VPN"
+    rules:
+      - proto: tcp
+        cidr_ip: "{{ ip_cidr }}.0.0/8"
+        ports:
+          - 22
+
+  - name: allow-private-http
+    description: "Allow private web traffic"
+    rules:
+      - proto: tcp
+        cidr_ip: "{{ ip_cidr }}.0.0/8"
+        ports:
+          - 80
+          - 443
+
+  - name: limited-public-https
+    description: "Limit http traffic"
+    rules:
+      # Over internal account:
+      - proto: tcp
+        cidr_ip: 0.0.0.0/0
+        ports:
+          - 80
+          - 443
+          - 8000
+
+  - name: limited-public-ssh
+    description: "Only allow ssh connections from internet gateway IP"
+    rules:
+      # Over internal account:
+      - proto: tcp
+        cidr_ip: 0.0.0.0/0
+        ports:
+          - 22
+
