@@ -17,7 +17,7 @@
     AWS_DEFAULT_REGION: "{{ aws_region }}"
   tasks:
     - include_role:
-        name: cluster_facts
+        name: codebolab.devops.cluster_facts
 
     - name: create elb target groups
       elb_target_group:
@@ -69,7 +69,7 @@
        var: created_albs
       
     - include_role:
-        name: update_route53
+        name: codebolab.devops.update_route53
       vars:
         record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
         hosted_zone_id: "{{ created_albs.canonical_hosted_zone_id }}"

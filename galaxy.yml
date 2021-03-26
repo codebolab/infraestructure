@@ -1,0 +1,17 @@
+namespace: codebolab
+name: devops
+version: 0.1.0
+readme: README.md
+authors:
+  - Jose Maria Zambrana Arze
+build_ignore:
+  - sensitive
+  - .DS_Store
+  - .git
+  - .gitignore
+  - '*.pyc'
+  - '*.swp'
+  - '*.tar.gz'
+  - playbooks/vars/credentials.yml
+  - playbooks/vars/platform.yml
+  - untracked

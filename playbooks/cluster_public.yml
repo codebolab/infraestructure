@@ -18,23 +18,29 @@
   tasks:
     - name: Creating cluster
       include_role:
-        name: cluster_vpc
+        name: codebolab.devops.cluster_vpc
       vars:
         public: yes
         private: no
 
     - name: Creating EC2 key 
       include_role:
-        name: cluster_vpckey
+        name: codebolab.devops.cluster_vpckey
 
     - name: Creating gateways
       include_role:
-        name: cluster_gateways
+        name: codebolab.devops.cluster_gateways
       vars:
         private: no
 
-    - name: Creating gateways
+    - name: Allocate eip
       include_role:
-        name: cluster_head
+        name: codebolab.devops.cluster_allocateip
       vars:
+
+    - name: Create a ec2 instance 
+      include_role:
+        name: cluster_ec2
+      vars:
+        public_ip: "{{ allocated_eip }}"
         subnet_name: public-a

@@ -14,12 +14,12 @@
     AWS_DEFAULT_REGION: "{{ aws_region }}"
   tasks:
     - include_role:
-        name: cluster_facts
+        name: codebolab.devops.cluster_facts
 
     # Delete elasticsearch.
     - name: Destroy elasticsearch server in AWS
       include_role:
-        name: elasticsearch_destroy
+        name: codebolab.devops.elasticsearch_destroy
       vars:
         domain_name: "{{ platform_name }}search"
 

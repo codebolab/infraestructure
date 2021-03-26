@@ -25,4 +25,4 @@
         var: rds_subnets
 
     - include_role:
-        name: rds_database
+        name: codebolab.devops.rds_database

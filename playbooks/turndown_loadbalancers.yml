@@ -39,25 +39,12 @@
         msg: "record: {{ platform_name }}-{{ service_id }}.{{ zone }}"
 
     - include_role:
-        name: delete_route53_record
+        name: codebolab.devops.delete_route53_record
       vars:
         record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
         hosted_zone_id: "{{ lb_info.canonical_hosted_zone_id }}"
         dns_name: "{{ lb_info.dns_name }}"
       when: lb_info is defined
-
-    #- name: delete routes
-      #route53:
-        #state: absent
-        #zone: "{{ zone }}"
-        #record: "{{ platform_name }}-{{ service_id }}.{{ zone }}"
-        #type: A
-        #alias: yes
-        #alias_hosted_zone_id: "{{ item.canonical_hosted_zone_id }}"
-        #alias_evaluate_target_health: yes
-        #value: "{{ item.dns_name }}"
-        #overwrite: yes
-      #loop: "{{ lbs_info.load_balancers }}"
 
     - name: deleting load balancers
       elb_application_lb:

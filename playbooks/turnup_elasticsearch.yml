@@ -19,4 +19,4 @@
 
     - name: Deploy elasticsearch server in AWS
       include_role:
-        name: elasticsearch
+        name: codebolab.devops.elasticsearch

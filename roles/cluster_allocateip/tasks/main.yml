@@ -1,0 +1,39 @@
+- set_fact:
+    eip_name: "{{ platform_name }}-head"
+
+- ec2_eip_info:
+    filters:
+      tag:Name: "{{ eip_name }}"
+  register: eip_info
+
+- debug:
+    var: eip_info
+
+- name: allocate eip for head
+  ec2_eip:
+    region: "{{ aws_region }}"
+    in_vpc: yes
+    reuse_existing_ip_allowed: yes
+    tag_name: "Name"
+    tag_value: "{{ eip_name }}"
+  register: eip_created
+  when: eip_info['addresses']|length == 0
+
+- debug:
+    var: eip_created
+
+- ec2_tag:
+    region: "{{ aws_region }}"
+    resource: "{{ eip_created['allocation_id'] }}"
+    state: present
+    tags:
+      Name: "{{ eip_name }}"
+  when: eip_created.skipped is not defined
+
+- ec2_eip_info:
+    filters:
+      tag:Name: "{{ eip_name }}"
+  register: eip_info
+
+- set_fact:
+    allocated_eip: "{{ eip_info.addresses[0].public_ip }}"

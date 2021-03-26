@@ -14,7 +14,7 @@
     AWS_DEFAULT_REGION: "{{ aws_region }}"
   tasks:
     - include_role:
-        name: cluster_facts
+        name: codebolab.devops.cluster_facts
 
     - name: Creates required role to attach to task definition
       iam_role:
@@ -68,7 +68,7 @@
     # Publish new docker image into ECS
     # -----------------------------------------
     - include_role:
-        name: docker_publish
+        name: codebolab.devops.docker_publish
       vars:
         version: "{{ env_name }}"
         tag_name: "{{ env_name }}"
@@ -81,7 +81,7 @@
       register: cluster_output
 
     - include_role:
-        name: ecs_service
+        name: codebolab.devops.ecs_service
       vars:
         app_tag: "{{ env_name }}"
         role_arn: "{{ (ecs_role['iam_roles'] | first)['arn'] }}"

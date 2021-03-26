@@ -83,4 +83,5 @@
     in_vpc: yes
     reuse_existing_ip_allowed: yes
     public_ip: "{{ public_ip }}"
+  when: public_eip is defined
 

@@ -28,7 +28,7 @@
     # -------------------------------------
     - block:
         - include_role:
-            name: ecs_service_destroy
+            name: codebolab.devops.ecs_service_destroy
           vars:
             app_name: "{{ service_id }}"
             nopause: true

@@ -15,7 +15,7 @@
     AWS_DEFAULT_REGION: "{{ aws_region }}"
   tasks:
     - include_role:
-        name: cluster_facts
+        name: codebolab.devops.cluster_facts
 
     # Turning down ec2 instances
     # -------------------------------------------
