@@ -2,6 +2,8 @@ namespace: codebolab
 name: devops
 version: 0.1.0
 readme: README.md
+homepage: https://github.com/codebolab/infraestructure
+repository: https://github.com/codebolab/infraestructure
 authors:
   - Jose Maria Zambrana Arze
 build_ignore:
@@ -14,4 +16,5 @@ build_ignore:
   - '*.tar.gz'
   - playbooks/vars/credentials.yml
   - playbooks/vars/platform.yml
+  - private
   - untracked
