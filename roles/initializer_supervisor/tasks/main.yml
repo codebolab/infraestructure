@@ -1,0 +1,32 @@
+# Supervisor
+# -------------------------------
+- name: Install Supervisor
+  yum:
+    name: supervisor
+    state: latest
+
+- name: Creates directory
+  file:
+    path: /etc/supervisor/
+    state: directory
+
+- name: Creates directory
+  file:
+    path: /var/log/supervisord/
+    state: directory
+
+- name: Copy supervisord config file
+  copy:
+    content: "{{ lookup('template', 'supervisord.conf') }}"
+    dest: /etc/supervisor/supervisord.conf
+
+- name: Copy supervisord service file
+  copy:
+    content: "{{ lookup('template', 'supervisord.service') }}"
+    dest: /usr/lib/systemd/system/supervisord.service
+
+- name: Start Supervisor Service
+  service:
+    name: supervisord
+    state: started
+    enabled: yes

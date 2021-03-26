@@ -1,0 +1,10 @@
+galaxy_info:
+  role_name: initializer_supervisor
+  author: Jose Maria Zambrana Arze
+  description: Install and configure Supervisor in AWS CentOS Linux server
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS
+    - Centos
+    - Supervisor

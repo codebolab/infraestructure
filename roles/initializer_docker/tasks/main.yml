@@ -1,0 +1,16 @@
+# Docker
+# -------------------------------
+- name: Install Docker
+  yum:
+    name: docker
+    state: latest
+
+- name: Start Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- user:
+    name: ec2-user
+    groups: docker

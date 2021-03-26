@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: ecs_service
+  author: Jose Maria Zambrana Arze
+  description: Deploy a ECS service, task definition and service
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: cluster_vpc
+  author: Jose Maria Zambrana Arze
+  description: Creates a cluster with VPC, subnets and security groups
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

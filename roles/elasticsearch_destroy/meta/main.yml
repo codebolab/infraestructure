@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: elasticsearch_destroy
+  author: Jose Maria Zambrana Arze
+  description: Remove a domain from AWS Elasticsearch
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

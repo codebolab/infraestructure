@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: rds_database
+  author: Jose Maria Zambrana Arze
+  description: Allocate an instance into RDS
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

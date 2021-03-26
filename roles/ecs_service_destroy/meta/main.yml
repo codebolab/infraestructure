@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: ecs_service_destroy
+  author: Jose Maria Zambrana Arze
+  description: Removes a ECS service
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

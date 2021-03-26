@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: cluster_ec2
+  author: Jose Maria Zambrana Arze
+  description: Creates an EC2 instance
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

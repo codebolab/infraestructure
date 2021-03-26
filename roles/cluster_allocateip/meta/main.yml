@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: cluster_allocateip
+  author: Jose Maria Zambrana Arze
+  description: Allocate a name elastic IP in your account
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

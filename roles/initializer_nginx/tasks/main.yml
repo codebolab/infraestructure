@@ -1,0 +1,22 @@
+# NGinx
+# -------------------------------
+- name: Install NGinx
+  yum:
+    name: nginx
+    state: latest
+
+- name: Creates directory
+  file:
+    path: /etc/nginx/sites-enabled/
+    state: directory
+
+- name: Copy nginx config file
+  copy:
+    content: "{{ lookup('template', 'nginx.conf') }}"
+    dest: /etc/nginx/nginx.conf
+
+- name: Start NGinx Service
+  service:
+    name: nginx
+    state: started
+    enabled: yes

@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: update_route53
+  author: Jose Maria Zambrana Arze
+  description: Create or update a record into a DNS zone.
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

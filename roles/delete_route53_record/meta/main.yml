@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: delete_route53_record 
+  author: Jose Maria Zambrana Arze
+  description: delete a record from a DNS zone in route53
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS
