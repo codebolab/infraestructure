@@ -75,6 +75,14 @@
         ec2_ips: "{{ ec2_ips | default({}) | combine({ (item.tags.Name | default(item.instance_id)): item.private_ip_address }) }}"
       loop: "{{ ec2_facts['instances'] }}"
       when: item.private_ip_address is defined
+
+    # Fact: ec2_public_ips
+    # ----------------------------
+    - name: "set facts: ec2_public_ips"
+      set_fact:
+        ec2_public_ips: "{{ ec2_public_ips | default({}) | combine({ (item.tags.Name | default(item.instance_id)): item.public_ip_address }) }}"
+      loop: "{{ ec2_facts['instances'] }}"
+      when: item.public_ip_address is defined
   rescue:
     - debug:
         msg: "VPC facts failed"
