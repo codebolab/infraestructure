@@ -1,0 +1,28 @@
+- name: set default docker tag
+  set_fact:
+    tag_name: latest
+  when: tag_name is not defined
+
+- name: ECR login
+  shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+- name: Docker pull from ECR
+  shell: "docker pull {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
+
+- debug:
+    msg: "Pulling from {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
+
+- set_fact:
+    published_ports:
+      - "0.0.0.0:{{ service_port | default('8000') }}:{{ service_port | default('8000') }}"
+    when: published_ports is not defined
+
+- name: Container present
+  docker_container:
+    name: "{{ service_name }}"
+    state: started
+    image: "{{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
+    published_ports: "{{ published_ports }}"
+    env: "{{ ENV_VARS | default({}) }}"
+    recreate: yes
+    volumes: "{{ volumes | default([]) }}"

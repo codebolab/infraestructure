@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: service_nginx_proxypass
+  author: Jose Maria Zambrana Arze
+  description: Configures a service in nginx with proxypass
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - nginx

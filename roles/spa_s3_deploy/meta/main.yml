@@ -1,0 +1,8 @@
+galaxy_info:
+  role_name: spa_s3_deploy
+  author: Jose Maria Zambrana Arze
+  description: deploys static directory into a s3 as a website.
+  license: MIT
+  min_ansible_version: 3.0
+  galaxy_tags:
+    - AWS

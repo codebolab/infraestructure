@@ -1,0 +1,48 @@
+# Creates a repository in ECR if it doesn't exist, creates a docker image and
+# publish it into the repository.
+#
+# Params:
+# - `account_id`: AWS Account id
+# - `aws_region`: AWS region.
+# - `service_name`: Application name.
+# - `tag_name` (optional): Docker tag name
+
+- name: set default docker tag
+  set_fact:
+    tag_name: latest
+  when: tag_name is not defined
+
+- debug:
+    msg: "Publishing {{ dockerfile_path }}/Dockerfile into {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
+
+- name: set default dockerfilepath
+  set_fact:
+    dockerfile_path: "{{ playbook_dir | dirname }}"
+  when: dockerfile_path is not defined
+
+- name: Create docker image registry
+  ecs_ecr:
+    name: "{{ service_name }}"
+    region: "{{ aws_region }}"
+
+- name: Build Docker image
+  docker_image:
+    name: "{{ service_name }}"
+    state: present
+    source: build
+    build:
+      nocache: "{{ nocache | default('yes') }}"
+      path: "{{ dockerfile_path }}"
+      pull: no
+      rm: yes
+    force_source: yes
+    tag: "{{ tag_name }}"
+
+- name: ECR login
+  shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+- name: Docker tag
+  shell: "docker tag {{ service_name }}:{{ tag_name }} {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
+
+- name: Docker publish from shell
+  shell: "docker push {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
