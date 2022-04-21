@@ -2,6 +2,18 @@
 
 A set a playbooks to create clusters and turn up or turn down services.
 
+Build collection:
+
+    $ ansible-galaxy collection build -f .
+
+Install collection:
+
+    $ ansible-galaxy collection install -f codebolab-devops-{{ version here }}.tar.gz
+
+Publish collection:
+
+    $ ansible-galaxy collection publish codebolab-devops-{{ version here }}.tar.gz --token={{ token here }} 
+
 ## Configurations
 
 Create an environment:

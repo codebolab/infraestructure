@@ -1,6 +1,6 @@
 namespace: codebolab
 name: devops
-version: 1.0.1
+version: 1.0.2
 readme: README.md
 license_file: LICENSE
 homepage: https://github.com/codebolab/infraestructure

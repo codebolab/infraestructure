@@ -1,0 +1,46 @@
+- name: obtain all facts for a single ACM certificate
+  aws_acm_facts:
+    domain_name: "*.{{ hostname }}"
+  register: acm_certificate
+
+- set_fact:
+    certificate_arn: "{{ acm_certificate.certificates.0.certificate_arn }}"
+  when: acm_certificate.certificates | length > 0
+
+- name: create an origin access identity
+  cloudfront_origin_access_identity:
+    state: present
+    caller_reference: "{{ site_hostname }}"
+  register: origin_access_identity
+
+- set_fact:
+    oai_id: "{{ origin_access_identity.cloud_front_origin_access_identity.id }}"
+
+- name: Create CloudFront Distribution
+  cloudfront_distribution:
+      alias: "{{ site_hostname }}"
+      caller_reference: "{{ site_hostname }}"
+      default_root_object: index.html
+      custom_error_responses:
+        - { error_code: 403, response_page_path: "/index.html", response_code: '200', error_caching_min_ttl: 300 }
+        - { error_code: 404, response_page_path: "/index.html", response_code: '200', error_caching_min_ttl: 300 }
+      origins:
+        - id: "s3-{{ bucket_name }}"
+          domain_name: "{{ bucket_name }}.s3.amazonaws.com"
+          s3_origin_access_identity_enabled: true
+          s3_origin_config:
+            origin_access_identity: "origin-access-identity/cloudfront/{{ oai_id }}"
+          custom_headers: []
+      viewer_certificate:
+        acm_certificate_arn: "{{ certificate_arn | default(omit) }}"
+        ssl_support_method: sni-only
+      default_cache_behavior:
+        viewer_protocol_policy: redirect-to-https
+        min_ttl: 0
+        max_ttl: 0
+        default_ttl: 0
+      state: present
+      tags:
+        Name: "frontend-{{ service_name }}"
+        Environment: "{{ env_name }}"
+  register: created_cloudfront 
