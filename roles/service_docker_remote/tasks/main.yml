@@ -3,6 +3,11 @@
     tag_name: latest
   when: tag_name is not defined
 
+- name: set default docker container name
+  set_fact:
+    container_name: "{{ service_name }}"
+  when: container_name is not defined
+
 - name: ECR login
   shell: "aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
 
@@ -19,7 +24,7 @@
 
 - name: Container present
   docker_container:
-    name: "{{ service_name }}"
+    name: "{{ container_name }}"
     state: started
     image: "{{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
     published_ports: "{{ published_ports }}"
