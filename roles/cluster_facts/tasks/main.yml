@@ -64,7 +64,6 @@
     # ----------------------------
     - ec2_instance_info:
         filters:
-            "tag:Environment": "{{ env_name }}"
             instance-state-name: ['running', 'shutting-down', 'stopping']
             "tag:VPC": "{{ platform_name }}"
       register: ec2_facts
@@ -119,4 +118,9 @@
 - name: EC2 Instances
   debug:
     var: ec2_instances
+  when: vpc_id != 'invalid'
+
+- name: Public Ips
+  debug:
+    var: ec2_public_ips
   when: vpc_id != 'invalid'
