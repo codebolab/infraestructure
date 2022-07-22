@@ -26,11 +26,12 @@
     region: "{{ aws_region }}"
 
 - name: Build Docker image
-  docker_image:
+  community.docker.docker_image:
     name: "{{ service_name }}"
     state: present
     source: build
     build:
+      args: "{{ build_args | default({}) }}"
       nocache: "{{ nocache | default('yes') }}"
       path: "{{ dockerfile_path }}"
       pull: no
