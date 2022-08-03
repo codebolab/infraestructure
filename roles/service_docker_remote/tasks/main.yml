@@ -30,4 +30,5 @@
     published_ports: "{{ published_ports }}"
     env: "{{ ENV_VARS | default({}) }}"
     recreate: yes
+    restart: yes
     volumes: "{{ volumes | default([]) }}"
