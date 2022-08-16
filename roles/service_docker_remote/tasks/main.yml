@@ -28,6 +28,6 @@
     state: started
     image: "{{ account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ service_name }}:{{ tag_name }}"
     published_ports: "{{ published_ports }}"
-    env: "{{ ENV_VARS | default({}) }}"
+    env: "{{ env_vars | default({}) }}"
     recreate: yes
     volumes: "{{ volumes | default([]) }}"
