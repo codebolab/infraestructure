@@ -1,5 +1,5 @@
 - name: obtain all facts for a single ACM certificate
-  aws_acm_facts:
+  community.aws.aws_acm_info:
     domain_name: "*.{{ hostname }}"
   register: acm_certificate
 
@@ -8,7 +8,7 @@
   when: acm_certificate.certificates | length > 0
 
 - name: create an origin access identity
-  cloudfront_origin_access_identity:
+  community.aws.cloudfront_origin_access_identity:
     state: present
     caller_reference: "{{ site_hostname }}"
   register: origin_access_identity
@@ -17,7 +17,7 @@
     oai_id: "{{ origin_access_identity.cloud_front_origin_access_identity.id }}"
 
 - name: Create CloudFront Distribution
-  cloudfront_distribution:
+  community.aws.cloudfront_distribution:
       alias: "{{ site_hostname }}"
       caller_reference: "{{ site_hostname }}"
       default_root_object: index.html
